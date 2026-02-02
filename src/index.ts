@@ -129,10 +129,12 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     configResolved(config: ResolvedConfig) {
       viteConfig = config;
       filter = createFilter(include, options?.ignore, { resolve: config.root });
-      // If a rootDir is specified, resolve it to an absolute path relative to
-      // the Vite project root; otherwise, it would be resolved relative to the
-      // current working directory, which may be different.
-      rootDir = path.join(config.root, rootDir ?? "");
+      if (rootDir) {
+        // If a rootDir is specified, resolve it to an absolute path relative to
+        // the Vite project root; otherwise, it would be resolved relative to
+        // the current working directory, which may be different.
+        rootDir = path.join(config.root, rootDir);
+      }
     },
     async buildStart() {
       if (viteConfig) {

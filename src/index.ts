@@ -54,6 +54,15 @@ export type TypedCssModulesOptions = {
   srcDir?: string;
 
   /**
+   * Specifies whether to run the plugin during `vite serve` or `vite` (i.e.,
+   * when running the dev server), `vite build` (i.e., when building for
+   * production), or `both`. By default, the plugin runs during both commands.
+   *
+   * @default "both"
+   */
+  commands?: "serve" | "build" | "both";
+
+  /**
    * @deprecated use {@link TypedCssModulesOptions.include} instead
    */
   fileExtension?: `.${string}` | `.${string}`[];
@@ -103,6 +112,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
   let _filter: ((id: string | unknown) => boolean) | null = null;
 
   const verbose: boolean = options?.verbose ?? false;
+  const commands = options?.commands ?? "both";
 
   // the absolute paths to both of these directories must be resolved relative
   // to the project root directory
@@ -117,6 +127,31 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
       console.debug(`[typed-css-modules] ${message}`);
     }
   }
+
+  /**
+   * Returns true if the plugin should run for the current Vite command; else,
+   * false.
+   */
+  function shouldRunForCommand(): boolean {
+    if (!viteConfig) {
+      return false;
+    }
+    const result = (
+      commands === "both" ||
+      commands === viteConfig.command
+    );
+
+    if (!result) {
+      debugLog(
+        `[shouldRunForCommand] Skipping because current command ` +
+        `"${viteConfig.command}" does not match configured commands ` +
+        `"${commands}"`
+      );
+    }
+
+    return result;
+  }
+
   /** Returns the absolute path to the project root. */
   function getProjectRoot(): string {
     return viteConfig?.root ?? process.cwd();
@@ -267,6 +302,9 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
       }
     },
     async buildStart(options) {
+      if (!shouldRunForCommand()) {
+        return;
+      }
 
       const files = await getAllMatchingFiles();
 
@@ -276,6 +314,9 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
       await Promise.all(files.map(generateTypeDefinitions));
     },
     async watchChange(file, change) {
+      if (!shouldRunForCommand()) {
+        return;
+      }
 
       if (!isInFolder(file, srcDir)) {
         debugLog(
